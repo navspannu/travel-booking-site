@@ -8,6 +8,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
+  <script src="https://assets.calendly.com/assets/external/widget.js" async></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -625,6 +627,9 @@
       availableSlots: ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"],
       availableDays: [1, 2, 3, 4, 5],
       bookingUrl: window.location.href,
+      calendlyUrl: "https://calendly.com/lane-mikaela/30min",
+      stripeUrl: "https://buy.stripe.com/7sY00k8xD9wFaLZgr0awo00",
+      formSubmitEndpoint: "https://formsubmit.co/ajax/lane.mikaela@gmail.com",
       instagram: "https://www.instagram.com/lane.mikaela/",
       tiktok: "https://www.tiktok.com/@travelwithmikaela",
     };
@@ -723,6 +728,12 @@
               <a href={CONFIG.tiktok} target="_blank" rel="noopener noreferrer" className="social-link">
                 <TikTokIcon /> @travelwithmikaela
               </a>
+              <a href="https://www.amazon.ca/shop/travelwithmikaela?ccs_id=05c0c3eb-8bf7-4043-b1a2-9edc0c42019c" target="_blank" rel="noopener noreferrer" className="social-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+                My Travel Essentials
+              </a>
             </div>
 
             <button className="btn-primary" onClick={onStart}
@@ -796,6 +807,7 @@
     /* ─── STEP 1: INTAKE ─── */
     function IntakeForm({ data, onChange, onNext, onBack }) {
       const [errors, setErrors] = useState({});
+      const [sending, setSending] = useState(false);
 
       const validate = () => {
         const e = {};
@@ -804,6 +816,37 @@
         if (data.goals.length === 0) e.goals = true;
         setErrors(e);
         return Object.keys(e).length === 0;
+      };
+
+      const submitToEmail = async () => {
+        if (!validate()) return;
+        setSending(true);
+        try {
+          const spendingSummary = Object.entries(data.spending)
+            .filter(([_, v]) => v)
+            .map(([cat, amt]) => `${cat}: $${amt}/mo`)
+            .join(', ') || 'Not provided';
+
+          await fetch(CONFIG.formSubmitEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              _subject: `New Booking Inquiry from ${data.firstName} ${data.lastName}`,
+              Name: `${data.firstName} ${data.lastName}`,
+              Email: data.email,
+              'Travel Goals': data.goals.join(', '),
+              'Annual Budget': data.budget || 'Not provided',
+              'Current Cards': data.cards.join(', ') || 'None selected',
+              'Monthly Spending': spendingSummary,
+              'Additional Notes': data.notes || 'None',
+            }),
+          });
+        } catch (err) {
+          // Still proceed even if email fails — don't block the user
+          console.log('Form submission note:', err);
+        }
+        setSending(false);
+        onNext();
       };
 
       const toggleGoal = (goal) => {
@@ -938,126 +981,76 @@
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
             <button className="btn-secondary" onClick={onBack}>Back</button>
-            <button className="btn-primary" onClick={() => validate() && onNext()}>Continue to Scheduling</button>
+            <button className="btn-primary" onClick={submitToEmail} disabled={sending}>
+              {sending ? 'Saving...' : 'Continue to Scheduling'}
+            </button>
           </div>
         </div>
       );
     }
 
-    /* ─── STEP 2: CALENDAR ─── */
-    function CalendarStep({ selectedDate, selectedTime, onSelectDate, onSelectTime, onNext, onBack }) {
-      const [viewMonth, setViewMonth] = useState(() => {
-        const now = new Date(); return { year: now.getFullYear(), month: now.getMonth() };
-      });
+    /* ─── STEP 2: CALENDLY SCHEDULING ─── */
+    function CalendarStep({ onNext, onBack }) {
+      const calendlyRef = useRef(null);
+      const [scheduled, setScheduled] = useState(false);
 
-      const daysInMonth = new Date(viewMonth.year, viewMonth.month + 1, 0).getDate();
-      const firstDay = new Date(viewMonth.year, viewMonth.month, 1).getDay();
-      const today = new Date(); today.setHours(0,0,0,0);
+      useEffect(() => {
+        // Load Calendly inline widget
+        const timer = setTimeout(() => {
+          if (calendlyRef.current && window.Calendly) {
+            Calendly.initInlineWidget({
+              url: CONFIG.calendlyUrl + '?hide_gdpr_banner=1&background_color=1a1a1a&text_color=ffffff&primary_color=c4727f',
+              parentElement: calendlyRef.current,
+            });
+          }
+        }, 300);
 
-      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-      const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-      const isAvailable = (day) => {
-        const date = new Date(viewMonth.year, viewMonth.month, day);
-        if (date < today) return false;
-        return CONFIG.availableDays.includes(date.getDay());
-      };
-
-      const dateKey = (day) => `${viewMonth.year}-${String(viewMonth.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-
-      const prevMonth = () => setViewMonth(v => v.month === 0 ? { year: v.year - 1, month: 11 } : { ...v, month: v.month - 1 });
-      const nextMonth = () => setViewMonth(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { ...v, month: v.month + 1 });
-
-      const formatSelectedDate = () => {
-        if (!selectedDate) return '';
-        const [y, m, d] = selectedDate.split('-');
-        return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-      };
+        // Listen for Calendly events
+        const handleMessage = (e) => {
+          if (e.data.event === 'calendly.event_scheduled') {
+            setScheduled(true);
+          }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => { clearTimeout(timer); window.removeEventListener('message', handleMessage); };
+      }, []);
 
       return (
         <div className="fade-in">
           <div className="step-label">Step 2 of 3</div>
           <div className="step-title">Pick a time</div>
-          <div className="step-subtitle">Choose a date and time for your {CONFIG.sessionLength} consultation.</div>
+          <div className="step-subtitle">Choose a date and time for your consultation with {CONFIG.consultantName}.</div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <button className="btn-secondary" onClick={prevMonth} style={{padding:'8px 16px'}}>&#8249;</button>
-            <span style={{ fontWeight: 600, fontSize: '16px' }}>{monthNames[viewMonth.month]} {viewMonth.year}</span>
-            <button className="btn-secondary" onClick={nextMonth} style={{padding:'8px 16px'}}>&#8250;</button>
-          </div>
+          <div ref={calendlyRef} style={{ minHeight: '650px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px' }} />
 
-          <div className="calendar-grid">
-            {dayNames.map(d => <div key={d} className="calendar-header">{d}</div>)}
-            {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} className="calendar-day empty" />)}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1;
-              const avail = isAvailable(day);
-              const key = dateKey(day);
-              return (
-                <div key={day}
-                  className={`calendar-day ${avail ? 'available' : ''} ${selectedDate === key ? 'selected' : ''}`}
-                  onClick={() => avail && onSelectDate(key)}>{day}</div>
-              );
-            })}
-          </div>
-
-          {selectedDate && (
-            <div className="fade-in">
-              <p style={{ fontWeight: 600, fontSize: '15px', marginBottom: '12px', color: 'var(--rose-light)' }}>
-                Available times — {formatSelectedDate()}
-              </p>
-              <div className="time-slots">
-                {CONFIG.availableSlots.map(slot => (
-                  <div key={slot} className={`time-slot ${selectedTime === slot ? 'selected' : ''}`}
-                    onClick={() => onSelectTime(slot)}>{slot}</div>
-                ))}
-              </div>
+          {scheduled && (
+            <div className="fade-in" style={{ background: 'rgba(111,207,151,0.1)', border: '1px solid rgba(111,207,151,0.3)', borderRadius: '10px', padding: '14px 20px', marginBottom: '16px', textAlign: 'center' }}>
+              <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: '14px' }}>Time slot confirmed! Continue to payment.</span>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
             <button className="btn-secondary" onClick={onBack}>Back</button>
-            <button className="btn-primary" disabled={!selectedDate || !selectedTime} onClick={onNext}>Continue to Payment</button>
+            <button className="btn-primary" disabled={!scheduled} onClick={onNext}>
+              {scheduled ? 'Continue to Payment' : 'Select a time above to continue'}
+            </button>
           </div>
         </div>
       );
     }
 
     /* ─── STEP 3: PAYMENT ─── */
-    function PaymentStep({ intake, selectedDate, selectedTime, onBack, onConfirm }) {
-      const [cardNum, setCardNum] = useState('');
-      const [expiry, setExpiry] = useState('');
-      const [cvc, setCvc] = useState('');
-      const [nameOnCard, setNameOnCard] = useState('');
-      const [processing, setProcessing] = useState(false);
-
-      const formatDate = () => {
-        if (!selectedDate) return '';
-        const [y, m, d] = selectedDate.split('-');
-        return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
-      };
-
+    function PaymentStep({ intake, onBack, onConfirm }) {
       const handlePay = () => {
-        setProcessing(true);
-        setTimeout(() => { setProcessing(false); onConfirm(); }, 2000);
-      };
-
-      const formatCardNum = (val) => {
-        const digits = val.replace(/\D/g, '').slice(0, 16);
-        return digits.replace(/(.{4})/g, '$1 ').trim();
-      };
-
-      const formatExpiry = (val) => {
-        const digits = val.replace(/\D/g, '').slice(0, 4);
-        if (digits.length > 2) return digits.slice(0, 2) + '/' + digits.slice(2);
-        return digits;
+        window.open(CONFIG.stripeUrl, '_blank');
+        onConfirm();
       };
 
       return (
         <div className="fade-in">
           <div className="step-label">Step 3 of 3</div>
           <div className="step-title">Confirm & Pay</div>
-          <div className="step-subtitle">Review your booking and complete payment.</div>
+          <div className="step-subtitle">Review your booking summary, then complete secure payment via Stripe.</div>
 
           <div style={{ background: 'rgba(196,114,127,0.06)', borderRadius: '12px', padding: '20px', marginBottom: '24px', border: '1px solid var(--border)' }}>
             <div className="summary-row">
@@ -1065,12 +1058,12 @@
               <span className="value">{CONFIG.consultantName}</span>
             </div>
             <div className="summary-row">
-              <span className="label">Date</span>
-              <span className="value">{formatDate()}</span>
+              <span className="label">Client</span>
+              <span className="value">{intake.firstName} {intake.lastName}</span>
             </div>
             <div className="summary-row">
-              <span className="label">Time</span>
-              <span className="value">{selectedTime}</span>
+              <span className="label">Email</span>
+              <span className="value">{intake.email}</span>
             </div>
             <div className="summary-row">
               <span className="label">Duration</span>
@@ -1082,44 +1075,22 @@
             </div>
           </div>
 
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rose)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '24px', marginBottom: '20px', textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '12px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
               </svg>
-              <span style={{ fontWeight: 600, fontSize: '15px' }}>Payment Details</span>
-              <span style={{ marginLeft: 'auto', fontSize: '11px', padding: '3px 10px', borderRadius: '50px', background: 'rgba(111,207,151,0.1)', color: 'var(--success)' }}>
-                Secure
-              </span>
+              <span style={{ fontWeight: 600, fontSize: '15px' }}>Secure Checkout via Stripe</span>
             </div>
-
-            <div className="field">
-              <label>Name on card</label>
-              <input value={nameOnCard} onChange={e => setNameOnCard(e.target.value)} placeholder="Jane Doe" />
-            </div>
-            <div className="field">
-              <label>Card number</label>
-              <input value={cardNum} onChange={e => setCardNum(formatCardNum(e.target.value))} placeholder="4242 4242 4242 4242" maxLength="19" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="field">
-                <label>Expiry</label>
-                <input value={expiry} onChange={e => setExpiry(formatExpiry(e.target.value))} placeholder="MM/YY" maxLength="5" />
-              </div>
-              <div className="field">
-                <label>CVC</label>
-                <input value={cvc} onChange={e => setCvc(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="123" maxLength="4" />
-              </div>
-            </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              In production, this will be a Stripe checkout — no card data touches your server.
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '0' }}>
+              You'll be redirected to Stripe's secure payment page. No card information is collected on this site — everything is handled directly by Stripe.
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '12px' }}>
             <button className="btn-secondary" onClick={onBack}>Back</button>
-            <button className="btn-primary" onClick={handlePay} disabled={processing}>
-              {processing ? 'Processing...' : `Pay ${CONFIG.currency}${CONFIG.sessionPrice}.00 & Book`}
+            <button className="btn-primary" onClick={handlePay}>
+              Pay {CONFIG.currency}{CONFIG.sessionPrice}.00 via Stripe
             </button>
           </div>
         </div>
@@ -1127,13 +1098,7 @@
     }
 
     /* ─── CONFIRMATION ─── */
-    function Confirmation({ intake, selectedDate, selectedTime }) {
-      const formatDate = () => {
-        if (!selectedDate) return '';
-        const [y, m, d] = selectedDate.split('-');
-        return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      };
-
+    function Confirmation({ intake }) {
       return (
         <div className="fade-in" style={{ textAlign: 'center' }}>
           <div className="check-circle">
@@ -1141,9 +1106,9 @@
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', marginBottom: '8px' }}>You're booked!</h2>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', marginBottom: '8px' }}>You're all set!</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '28px' }}>
-            A confirmation email is on its way to <strong style={{color:'var(--white)'}}>{intake.email}</strong>
+            Your consultation with {CONFIG.consultantName} is booked. A confirmation will be sent to <strong style={{color:'var(--white)'}}>{intake.email}</strong>
           </p>
 
           <div style={{ background: 'rgba(196,114,127,0.06)', borderRadius: '12px', padding: '24px', textAlign: 'left', marginBottom: '24px', border: '1px solid var(--border)' }}>
@@ -1152,16 +1117,16 @@
               <span className="value">{CONFIG.consultantName}</span>
             </div>
             <div className="summary-row">
-              <span className="label">Date</span>
-              <span className="value">{formatDate()}</span>
-            </div>
-            <div className="summary-row">
-              <span className="label">Time</span>
-              <span className="value">{selectedTime} ({CONFIG.sessionLength})</span>
+              <span className="label">Duration</span>
+              <span className="value">{CONFIG.sessionLength}</span>
             </div>
             <div className="summary-row">
               <span className="label">Client</span>
               <span className="value">{intake.firstName} {intake.lastName}</span>
+            </div>
+            <div className="summary-row">
+              <span className="label">Amount Paid</span>
+              <span className="value">{CONFIG.currency}{CONFIG.sessionPrice}.00</span>
             </div>
           </div>
 
@@ -1202,8 +1167,6 @@
     function App() {
       const [step, setStep] = useState(0);
       const [intake, setIntake] = useState({ firstName: '', lastName: '', email: '', goals: [], budget: '', cards: [], spending: {}, notes: '' });
-      const [selectedDate, setSelectedDate] = useState(null);
-      const [selectedTime, setSelectedTime] = useState(null);
 
       useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
 
@@ -1227,8 +1190,8 @@
 
                 <div className="card">
                   {step === 1 && <IntakeForm data={intake} onChange={setIntake} onNext={() => setStep(2)} onBack={() => setStep(0)} />}
-                  {step === 2 && <CalendarStep selectedDate={selectedDate} selectedTime={selectedTime} onSelectDate={setSelectedDate} onSelectTime={setSelectedTime} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
-                  {step === 3 && <PaymentStep intake={intake} selectedDate={selectedDate} selectedTime={selectedTime} onBack={() => setStep(2)} onConfirm={() => setStep(4)} />}
+                  {step === 2 && <CalendarStep onNext={() => setStep(3)} onBack={() => setStep(1)} />}
+                  {step === 3 && <PaymentStep intake={intake} onBack={() => setStep(2)} onConfirm={() => setStep(4)} />}
                 </div>
               </div>
             </div>
@@ -1237,7 +1200,7 @@
           {step === 4 && (
             <div style={{ minHeight: '100vh', paddingTop: '60px', paddingBottom: '60px' }}>
               <div className="container">
-                <div className="card"><Confirmation intake={intake} selectedDate={selectedDate} selectedTime={selectedTime} /></div>
+                <div className="card"><Confirmation intake={intake} /></div>
               </div>
             </div>
           )}
