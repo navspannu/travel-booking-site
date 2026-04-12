@@ -273,6 +273,68 @@
       line-height: 1.5;
     }
 
+    /* ─── REFERRAL CARDS ─── */
+    .picks-section {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 0 32px;
+    }
+
+    .picks-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    @media (max-width: 600px) {
+      .picks-grid { grid-template-columns: 1fr; }
+    }
+
+    .pick-card {
+      background: var(--noir-light);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+
+    .pick-card:hover {
+      border-color: var(--rose);
+      transform: translateY(-2px);
+    }
+
+    .pick-card-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--white);
+      line-height: 1.3;
+    }
+
+    .pick-card-tag {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .pick-card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--rose-light);
+      text-decoration: none;
+      margin-top: auto;
+      transition: color 0.2s;
+    }
+
+    .pick-card-link:hover { color: var(--rose-pale); }
+
     /* ─── SOCIAL BAR ─── */
     .social-bar {
       display: flex;
@@ -761,10 +823,45 @@
                 <div className="stat-label">Value</div>
               </div>
             </div>
+
+          </div>
+
+          {/* Mik's Top Picks — Referral Cards */}
+          <div className="picks-section" style={{ position: 'relative', zIndex: 1 }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 600, textAlign: 'center', color: 'var(--white)', marginBottom: '4px' }}>
+              {"Mik's Top Picks"}
+            </h3>
+            <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              The cards I recommend to start earning travel rewards
+            </p>
+
+            <div className="picks-grid">
+              {[
+                { name: 'American Express\u00AE Aeroplan\u00AE* Reserve Card', tag: 'Premium Aeroplan earning + lounge access', url: 'https://americanexpress.com/en-ca/referral/aeroplan-reserve?ref=mIKAELPQJO' },
+                { name: 'The Platinum Card\u00AE', tag: 'Ultimate travel perks + global lounge access', url: 'https://americanexpress.com/en-ca/referral/platinum?ref=mIKAELUtlX' },
+                { name: 'American Express Cobalt\u00AE Card', tag: '5x points on dining & groceries', url: 'https://americanexpress.com/en-ca/referral/cobalt?ref=mIKAELrpuY' },
+                { name: 'Marriott Bonvoy\u00AE American Express\u00AE* Card', tag: 'Free hotel nights + elite status', url: 'https://americanexpress.com/en-ca/referral/marriott-bonvoy?ref=mIKAELjcT1' },
+              ].map((card, i) => (
+                <div className="pick-card" key={i}>
+                  <div className="pick-card-name">{card.name}</div>
+                  <div className="pick-card-tag">{card.tag}</div>
+                  <a href={card.url} target="_blank" rel="noopener noreferrer" className="pick-card-link">
+                    Learn More
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 17l9.2-9.2M17 17V7H7"/>
+                    </svg>
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '16px' }}>
+              These are referral links. I may earn a bonus when you apply through them.
+            </p>
           </div>
 
           {/* Framework + Features */}
-          <div className="features">
+          <div className="features" style={{ position: 'relative', zIndex: 1 }}>
             <p style={{ textAlign: 'center', fontStyle: 'italic', color: 'var(--rose-light)', fontSize: '14px', marginBottom: '24px', fontFamily: "'Playfair Display', serif" }}>
               {CONFIG.heroLine}
             </p>
