@@ -704,7 +704,7 @@
       fullName: "Mikaela Lane, CPA",
       brandName: "Live Your Rich Life",
       tagline: "Maximizing Rewards for Luxury Travel",
-      heroLine: "30 minutes that could save you thousands — and upgrade your travel forever",
+      heroLine: "45 minutes that could save you thousands — and upgrade your travel forever",
       sessionPrice: 75,
       sessionLength: "45 min",
       currency: "$",
@@ -719,13 +719,22 @@
     };
 
     const CREDIT_CARDS = [
-      "Chase Sapphire Preferred", "Chase Sapphire Reserve", "Amex Gold",
-      "Amex Platinum", "Capital One Venture X", "Citi Premier",
-      "Ink Business Preferred", "Amex Blue Business Plus",
-      "Marriott Bonvoy Boundless", "Hilton Honors Aspire",
-      "Southwest Rapid Rewards", "United Explorer", "Delta SkyMiles Gold",
-      "World of Hyatt", "IHG One Rewards Premier", "TD Aeroplan Visa Infinite",
-      "AMEX Cobalt", "Other"
+      "American Express Platinum Card",
+      "American Express Cobalt Card",
+      "American Express Aeroplan Reserve Card",
+      "Marriott Bonvoy American Express Card",
+      "TD Aeroplan Visa Infinite Card",
+      "TD Aeroplan Visa Infinite Privilege Card",
+      "TD First Class Travel Visa Infinite Card",
+      "Scotiabank Gold American Express Card",
+      "Scotiabank Passport Visa Infinite Card",
+      "CIBC Aeroplan Visa Infinite Card",
+      "CIBC Aeroplan Visa Infinite Privilege Card",
+      "RBC Avion Visa Infinite",
+      "RBC Avion Visa Infinite Privilege",
+      "RBC ION+ Visa",
+      "WestJet RBC World Elite Mastercard",
+      "Other",
     ];
 
     const SPENDING_CATEGORIES = [
@@ -829,22 +838,25 @@
             </p>
 
             {/* Stats from the deck */}
-            <div className="stats-bar">
+            <p style={{ textAlign: 'center', fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: '15px', color: 'var(--rose-light)', marginTop: '40px', marginBottom: '12px', letterSpacing: '0.5px' }}>
+              Emirates First Class Suite
+            </p>
+            <div className="stats-bar" style={{ marginTop: 0 }}>
               <div className="stat">
-                <div className="stat-value">$20K+</div>
-                <div className="stat-label">Saved</div>
+                <div className="stat-value">$22,000</div>
+                <div className="stat-label">Retail Value</div>
               </div>
               <div className="stat">
-                <div className="stat-value">$172</div>
-                <div className="stat-label">Out of Pocket</div>
+                <div className="stat-value">$81</div>
+                <div className="stat-label">Cash Out of Pocket</div>
               </div>
               <div className="stat">
-                <div className="stat-value">161K</div>
+                <div className="stat-value">360K</div>
                 <div className="stat-label">Points Used</div>
               </div>
               <div className="stat">
-                <div className="stat-value">12¢/pt</div>
-                <div className="stat-label">Value</div>
+                <div className="stat-value">6¢/pt</div>
+                <div className="stat-label">Points Value</div>
               </div>
             </div>
 
@@ -892,10 +904,10 @@
 
             <div className="feature-grid">
               {[
-                { num: '01', title: 'Dream', desc: 'Define the experience you want' },
-                { num: '02', title: 'Design', desc: 'Build your credit card strategy & ecosystem' },
-                { num: '03', title: 'Earn', desc: 'Maximize every dollar you spend' },
-                { num: '04', title: 'Redeem', desc: 'Book the experience you designed for' },
+                { num: '01', title: 'Dream', desc: 'Define your dream experience' },
+                { num: '02', title: 'Design', desc: 'Build your rewards strategy' },
+                { num: '03', title: 'Earn', desc: 'Maximize your regular spending' },
+                { num: '04', title: 'Redeem', desc: 'Book your dream experience' },
               ].map((f, i) => (
                 <div className="feature-card" key={i}>
                   <div className="feature-num">{f.num}</div>
@@ -946,6 +958,10 @@
             .map(([cat, amt]) => `${cat}: $${amt}/mo`)
             .join(', ') || 'Not provided';
 
+          const cardsWithOther = data.cards.includes('Other') && data.otherCard
+            ? [...data.cards.filter(c => c !== 'Other'), `Other: ${data.otherCard}`].join(', ')
+            : data.cards.join(', ') || 'None selected';
+
           await fetch(CONFIG.formSubmitEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -953,10 +969,13 @@
               _subject: `New Booking Inquiry from ${data.firstName} ${data.lastName}`,
               Name: `${data.firstName} ${data.lastName}`,
               Email: data.email,
+              'Dream Trip / Redemption': data.dreamTrip || 'Not provided',
               'Travel Goals': data.goals.join(', '),
-              'Annual Budget': data.budget || 'Not provided',
-              'Current Cards': data.cards.join(', ') || 'None selected',
+              'Annual Credit Card Spend': data.ccSpend || 'Not provided',
+              'Has Personal Business/Company': data.hasBusiness || 'Not provided',
+              'Current Cards': cardsWithOther,
               'Monthly Spending': spendingSummary,
+              'Points/Miles Balances': data.pointsBalances || 'Not provided',
               'Additional Notes': data.notes || 'None',
             }),
           });
@@ -980,7 +999,7 @@
 
       return (
         <div className="fade-in">
-          <div className="step-label">Step 1 of 3</div>
+          <div className="step-label">Step 1 of 2</div>
           <div className="step-title">Tell us about yourself</div>
           <div className="step-subtitle">Help {CONFIG.consultantName} prepare a personalized strategy session for you.</div>
 
@@ -1004,6 +1023,12 @@
           </div>
 
           <div className="field">
+            <label>Do you have a dream trip or rewards redemption in mind? <span style={{fontWeight:400, color:'var(--text-muted)'}}>be specific</span></label>
+            <textarea value={data.dreamTrip} onChange={e => onChange({...data, dreamTrip: e.target.value})}
+              placeholder="e.g. Emirates First Class Suite, a week in the Maldives at the St. Regis, business class to Tokyo..." />
+          </div>
+
+          <div className="field">
             <label>What are your travel goals? * <span style={{fontWeight:400, color:'var(--text-muted)'}}>select all that apply</span></label>
             <div className="tag-grid">
               {TRAVEL_GOALS.map(goal => (
@@ -1015,15 +1040,30 @@
           </div>
 
           <div className="field">
-            <label>Annual travel budget (approx.)</label>
-            <select value={data.budget} onChange={e => onChange({...data, budget: e.target.value})}>
+            <label>Annual credit card spend (approx.)</label>
+            <select value={data.ccSpend} onChange={e => onChange({...data, ccSpend: e.target.value})}>
               <option value="">Select a range...</option>
-              <option value="under-2k">Under $2,000</option>
-              <option value="2k-5k">$2,000 – $5,000</option>
-              <option value="5k-10k">$5,000 – $10,000</option>
-              <option value="10k-20k">$10,000 – $20,000</option>
-              <option value="20k-plus">$20,000+</option>
+              <option value="Under $12K">Under $12K</option>
+              <option value="$12K - $15K">$12K - $15K</option>
+              <option value="$15K - $20K">$15K - $20K</option>
+              <option value="$20K - $30K">$20K - $30K</option>
+              <option value="$30K - $40K">$30K - $40K</option>
+              <option value="$40K - $50K">$40K - $50K</option>
+              <option value="$50K - $60K">$50K - $60K</option>
+              <option value="$60K+">$60K+</option>
             </select>
+          </div>
+
+          <div className="field">
+            <label>Do you have a personal business or company?</label>
+            <div className="tag-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className={`tag ${data.hasBusiness === 'Yes' ? 'selected' : ''}`}
+                onClick={() => onChange({ ...data, hasBusiness: 'Yes' })}
+                style={{ textAlign: 'center' }}>Yes</div>
+              <div className={`tag ${data.hasBusiness === 'No' ? 'selected' : ''}`}
+                onClick={() => onChange({ ...data, hasBusiness: 'No' })}
+                style={{ textAlign: 'center' }}>No</div>
+            </div>
           </div>
 
           <div className="field">
@@ -1034,6 +1074,15 @@
                   onClick={() => toggleCard(card)}>{card}</div>
               ))}
             </div>
+            {data.cards.includes('Other') && (
+              <input
+                style={{ marginTop: '12px' }}
+                type="text"
+                placeholder="Please specify the other card(s)..."
+                value={data.otherCard}
+                onChange={e => onChange({ ...data, otherCard: e.target.value })}
+              />
+            )}
           </div>
 
           <div className="field">
@@ -1093,15 +1142,21 @@
           </div>
 
           <div className="field">
+            <label>What points/miles balances do you currently have?</label>
+            <textarea value={data.pointsBalances} onChange={e => onChange({...data, pointsBalances: e.target.value})}
+              placeholder="e.g. 150,000 Aeroplan points, 80,000 Amex MR, 50,000 Marriott Bonvoy..." />
+          </div>
+
+          <div className="field">
             <label>Anything else {CONFIG.consultantName} should know?</label>
             <textarea value={data.notes} onChange={e => onChange({...data, notes: e.target.value})}
-              placeholder="Dream destinations, upcoming trips, specific questions..." />
+              placeholder="Upcoming trips, specific questions..." />
           </div>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
             <button className="btn-secondary" onClick={onBack}>Back</button>
             <button className="btn-primary" onClick={submitToEmail} disabled={sending}>
-              {sending ? 'Saving...' : 'Continue to Scheduling'}
+              {sending ? 'Saving...' : 'Continue to Payment'}
             </button>
           </div>
         </div>
@@ -1242,7 +1297,7 @@
     /* ─── APP ─── */
     function App() {
       const [step, setStep] = useState(0);
-      const [intake, setIntake] = useState({ firstName: '', lastName: '', email: '', goals: [], budget: '', cards: [], spending: {}, notes: '' });
+      const [intake, setIntake] = useState({ firstName: '', lastName: '', email: '', dreamTrip: '', goals: [], ccSpend: '', hasBusiness: '', cards: [], otherCard: '', spending: {}, pointsBalances: '', notes: '' });
 
       useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
 
